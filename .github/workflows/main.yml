@@ -56,6 +56,7 @@ jobs:
             cd /home/${{secrets.EC2_USER}}/TEMP
             ls -l
             rm -rf node_modules package-lock.json
+            npm cache clean --force
             npm install
             echo "const strapi = require('@strapi/strapi'); strapi().start();" > server.js
             sudo pm2 start server.js --name strapi
