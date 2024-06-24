@@ -55,9 +55,9 @@ jobs:
             cd /home/${{secrets.EC2_USER}}/TEMP
             ls -l
             npm install
+            echo "const strapi = require('@strapi/strapi'); strapi().start();" | sudo tee server.js
             sudo pm2 start server.js --name strapi
             sudo pm2 save
             sudo pm2 startup
             sudo pm2 list
-            npm start
           EOF
