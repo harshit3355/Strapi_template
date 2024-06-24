@@ -47,6 +47,7 @@ jobs:
 
           echo "Running remote commands..."
           ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            set -e 
             sudo apt-get update -y
             sudo apt-get install -y curl
             curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -55,6 +56,7 @@ jobs:
             cd /home/${{secrets.EC2_USER}}/TEMP
             ls -l
             npm install
+            echo "const strapi = require('@strapi/strapi'); strapi().start();" > server.js
             sudo pm2 start server.js --name strapi
             sudo pm2 save
             sudo pm2 startup
