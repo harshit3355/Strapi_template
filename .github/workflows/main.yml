@@ -1,0 +1,63 @@
+name: Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Generate Environment File
+        run: |
+          echo "PORT=1337" >> .env
+          echo "HOST=0.0.0.0" >> .env
+          echo "APP_KEYS=${{ secrets.APP_KEYS }}" >> .env
+          echo "API_TOKEN_SALT=${{ secrets.API_TOKEN_SALT }}" >> .env
+          echo "ADMIN_JWT_SECRET=${{ secrets.ADMIN_JWT_SECRET }}" >> .env
+          echo "TRANSFER_TOKEN_SALT=${{ secrets.TRANSFER_TOKEN_SALT }}" >> .env
+          echo "DATABASE_CLIENT=${{ secrets.DATABASE_CLIENT }}" >> .env
+          echo "DATABASE_FILENAME=${{ secrets.DATABASE_FILENAME }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+        run: |
+          echo "${EC2_KEY}" > private_key.pem
+          chmod 600 private_key.pem
+
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
+
+          echo "Ensuring TEMP directory exists..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
+
+          echo "Copying .env file..."
+          scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
+
+          echo "Synchronizing project files..."
+          rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
+
+          echo "Running remote commands..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            sudo apt-get update -y
+            sudo apt-get install -y curl
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+            sudo npm install -g pm2
+            cd /home/${{secrets.EC2_USER}}/TEMP
+            ls -l
+            npm install
+            sudo pm2 start server.js --name strapi
+            sudo pm2 save
+            sudo pm2 startup
+            sudo pm2 list
+            npm start
+          EOF
