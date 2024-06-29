@@ -32,43 +32,44 @@ jobs:
       - name: Push Image to Docker Hub
         run: docker push harshit3355/peer:latest
 
-      # - name: Deploy to EC2
-      #   env:
-      #     EC2_HOST: ${{ secrets.EC2_HOST }}
-      #     EC2_USER: ${{ secrets.EC2_USER }}
-      #     EC2_KEY: ${{ secrets.EC2_KEY }}
-      #   run: |
-      #     echo "${EC2_KEY}" > private_key.pem
-      #     chmod 600 private_key.pem
+      - name: Deploy to EC2
+        env:
+           EC2_HOST: ${{ secrets.EC2_HOST }}
+           EC2_USER: ${{ secrets.EC2_USER }}
+           EC2_KEY: ${{ secrets.EC2_KEY }}
+        run: |
+           echo "${EC2_KEY}" > private_key.pem
+           chmod 600 private_key.pem
 
-      #     echo "Testing SSH connection..."
-      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
+           echo "Testing SSH connection..."
+           ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
 
-      #     echo "Ensuring TEMP directory exists..."
-      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
+           echo "Ensuring TEMP directory exists..."
+           ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
 
-      #     echo "Copying .env file..."
-      #     scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
+           echo "Copying .env file..."
+           scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
 
-      #     echo "Synchronizing project files..."
-      #     rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
+           echo "Synchronizing project files..."
+           rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
 
-      #     echo "Running remote commands..."
-      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-      #       set -e 
-      #       sudo apt-get update -y
-      #       sudo apt-get install -y curl
-      #       curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-      #       sudo apt-get install -y nodejs
-      #       sudo npm install -g pm2
-      #       cd /home/${{secrets.EC2_USER}}/TEMP
-      #       ls -l
-      #       rm -rf node_modules package-lock.json
-      #       npm cache clean --force
-      #       npm install
-      #       echo "const strapi = require('@strapi/strapi'); strapi().start();" > server.js
-      #       sudo pm2 start server.js --name strapi
-      #       sudo pm2 save
-      #       sudo pm2 startup
-      #       sudo pm2 list
-      #     EOF
+           echo "Running remote commands..."
+           ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+             set -e 
+             sudo apt-get update -y
+             sudo apt-get install -y curl
+             curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+             sudo apt-get install -y nodejs
+             sudo npm install -g pm2
+             cd /home/${{secrets.EC2_USER}}/TEMP
+             ls -l
+             rm -rf node_modules package-lock.json
+             npm cache clean --force
+             sudo chmod +x env_generator.sh
+             ./env_generator.sh
+             npm install
+             pm2 start npm --name "strapi" -- run develop
+             sudo pm2 save
+             sudo pm2 startup
+             sudo pm2 list
+           EOF
