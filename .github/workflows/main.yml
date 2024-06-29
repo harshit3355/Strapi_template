@@ -12,55 +12,63 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
       - name: Generate Environment File
         run: |
-          echo "PORT=1337" >> .env
-          echo "HOST=0.0.0.0" >> .env
-          echo "APP_KEYS=${{ secrets.APP_KEYS }}" >> .env
-          echo "API_TOKEN_SALT=${{ secrets.API_TOKEN_SALT }}" >> .env
-          echo "ADMIN_JWT_SECRET=${{ secrets.ADMIN_JWT_SECRET }}" >> .env
-          echo "TRANSFER_TOKEN_SALT=${{ secrets.TRANSFER_TOKEN_SALT }}" >> .env
-          echo "DATABASE_CLIENT=${{ secrets.DATABASE_CLIENT }}" >> .env
-          echo "DATABASE_FILENAME=${{ secrets.DATABASE_FILENAME }}" >> .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          chmod +x env_gengerator.sh
+          ./env_generator.sh
 
-      - name: Deploy to EC2
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_KEY: ${{ secrets.EC2_KEY }}
-        run: |
-          echo "${EC2_KEY}" > private_key.pem
-          chmod 600 private_key.pem
+      - name: Build Docker image
+        run: docker build -t harshit3355/peer:latest .
+      
 
-          echo "Testing SSH connection..."
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
+      - name: Login to docker hub
+        run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      
+      - name: Push Image to Docker Hub
+        run: docker push harshit3355/peer:latest
 
-          echo "Ensuring TEMP directory exists..."
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
+      # - name: Deploy to EC2
+      #   env:
+      #     EC2_HOST: ${{ secrets.EC2_HOST }}
+      #     EC2_USER: ${{ secrets.EC2_USER }}
+      #     EC2_KEY: ${{ secrets.EC2_KEY }}
+      #   run: |
+      #     echo "${EC2_KEY}" > private_key.pem
+      #     chmod 600 private_key.pem
 
-          echo "Copying .env file..."
-          scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
+      #     echo "Testing SSH connection..."
+      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
 
-          echo "Synchronizing project files..."
-          rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
+      #     echo "Ensuring TEMP directory exists..."
+      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
 
-          echo "Running remote commands..."
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            set -e 
-            sudo apt-get update -y
-            sudo apt-get install -y curl
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-            sudo npm install -g pm2
-            cd /home/${{secrets.EC2_USER}}/TEMP
-            ls -l
-            rm -rf node_modules package-lock.json
-            npm cache clean --force
-            npm install
-            echo "const strapi = require('@strapi/strapi'); strapi().start();" > server.js
-            sudo pm2 start server.js --name strapi
-            sudo pm2 save
-            sudo pm2 startup
-            sudo pm2 list
-          EOF
+      #     echo "Copying .env file..."
+      #     scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
+
+      #     echo "Synchronizing project files..."
+      #     rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
+
+      #     echo "Running remote commands..."
+      #     ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+      #       set -e 
+      #       sudo apt-get update -y
+      #       sudo apt-get install -y curl
+      #       curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      #       sudo apt-get install -y nodejs
+      #       sudo npm install -g pm2
+      #       cd /home/${{secrets.EC2_USER}}/TEMP
+      #       ls -l
+      #       rm -rf node_modules package-lock.json
+      #       npm cache clean --force
+      #       npm install
+      #       echo "const strapi = require('@strapi/strapi'); strapi().start();" > server.js
+      #       sudo pm2 start server.js --name strapi
+      #       sudo pm2 save
+      #       sudo pm2 startup
+      #       sudo pm2 list
+      #     EOF
