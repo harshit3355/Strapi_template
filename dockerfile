@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 
 # Install the dependencies
-// RUN npm install
+RUN npm install
 
 # Make the env_generator.sh script executable
 
