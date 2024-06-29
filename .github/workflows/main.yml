@@ -19,7 +19,7 @@ jobs:
 
       - name: Generate Environment File
         run: |
-          chmod +x env_gengerator.sh
+          chmod +x env_generator.sh
           ./env_generator.sh
 
       - name: Build Docker image
