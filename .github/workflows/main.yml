@@ -44,32 +44,24 @@ jobs:
            echo "Testing SSH connection..."
            ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "echo 'SSH connection successful.'"
 
-           echo "Ensuring TEMP directory exists..."
-           ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/TEMP"
-
-           echo "Copying .env file..."
-           scp -o StrictHostKeyChecking=no -i private_key.pem .env $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP/.env
-
-           echo "Synchronizing project files..."
-           rsync -avz -e "ssh -o StrictHostKeyChecking=no -i private_key.pem" --exclude="node_modules" ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/TEMP
-
            echo "Running remote commands..."
            ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-             set -e 
-             sudo apt-get update -y
-             sudo apt-get install -y curl
-             curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-             sudo apt-get install -y nodejs
-             sudo npm install -g pm2
-             cd /home/${{secrets.EC2_USER}}/TEMP
+             set -e
+             cd
+             cd ..
+             ls
+             cd ..
              ls -l
-             rm -rf node_modules package-lock.json
-             npm cache clean --force
-             sudo chmod +x env_generator.sh
-             ./env_generator.sh
-             npm install
-             pm2 start npm --name "strapi" -- run develop
-             sudo pm2 save
-             sudo pm2 startup
-             sudo pm2 list
+             cd srv/
+             sudo rm -rf strapi/
+             ls
+             sudo docker ps
+             sudo docker stop strapi-container
+             sudo docker rm strapi-container
+             sudo docker ps -a
+             sudo docker images
+             sudo docker rmi harshit3355/peer:latest
+             sudo docker images
+             sudo docker pull harshit3355/peer:latest
+             sudo docker run -d --name strapi-container -p 1337:1337 -v strapi-data:/srv/strapi/public/uploads harshit3355/peer:latest
            EOF
